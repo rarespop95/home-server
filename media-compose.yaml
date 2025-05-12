@@ -1,0 +1,313 @@
+# Compose file for the *arr stack. Configuration files are stored in the 
+# directory you launch the compose file on. Change to bind mounts if needed.
+# All containers are ran with user and group ids of the main user and 
+# share to aviod permissions issues of downloaded files, please refer
+# the read me file for more information.
+
+networks:
+  servarrnetwork:
+    ipam:
+      config:
+        - subnet: 172.69.0.0/24
+
+services:
+  gluetun:
+    image: qmcgaw/gluetun
+    container_name: gluetun
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun # If running on an LXC see readme for more info.
+    networks:
+      servarrnetwork:
+        ipv4_address: 172.69.0.2
+    ports:
+      - 8080:8080 # qbittorrent web interface
+      - 6881:6881 # qbittorrent torrent port
+      - 6789:6789 # nzbget
+      - 9696:9696 # prowlarr
+      - 8191:8191  # flaresolverr
+    volumes:
+      - ./gluetun:/gluetun
+    environment:
+      - VPN_SERVICE_PROVIDER=${VPN_SERVICE_PROVIDER}
+      - VPN_TYPE=${VPN_TYPE}
+      - FIREWALL_VPN_INPUT_PORTS=${FIREWALL_VPN_INPUT_PORTS}
+      - WIREGUARD_PRIVATE_KEY=${WIREGUARD_PRIVATE_KEY}
+      - WIREGUARD_PRESHARED_KEY=${WIREGUARD_PRESHARED_KEY}
+      - WIREGUARD_ADDRESSES=${WIREGUARD_ADDRESSES}
+      - SERVER_COUNTRIES=${SERVER_COUNTRIES}
+      - SERVER_CITIES=${SERVER_CITIES}
+      - HEALTH_VPN_DURATION_INITIAL=120s
+      - BLOCK_MALICIOUS=off
+
+    healthcheck:
+      test: ping -c 1 www.google.com || exit 1
+      interval: 60s
+      timeout: 20s
+      retries: 5
+    restart: unless-stopped
+
+  # This is a new addition since creating the tutorial video on this stack.
+  # See the 'qBittorrent Stalls with VPN Timeout' section for more information.
+  deunhealth:
+    image: qmcgaw/deunhealth
+    container_name: deunhealth
+    network_mode: "none"
+    environment:
+      - LOG_LEVEL=info
+      - HEALTH_SERVER_ADDRESS=127.0.0.1:9999
+      - TZ=${TZ}
+    restart: always
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  # Healthcheck was added to work with deunhealth to restart container
+  # on unhealthy status. labels allows deunhealth to monitor.
+  qbittorrent:
+    image: lscr.io/linuxserver/qbittorrent:latest
+    container_name: qbittorrent
+    restart: unless-stopped
+    labels:
+      - deunhealth.restart.on.unhealthy=true
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=${TZ}
+      - WEBUI_PORT=8080
+      - TORRENTING_PORT=6881
+    volumes:
+      - ./qbittorrent:/config
+      - /data:/data
+    depends_on:
+      - gluetun
+    network_mode: service:gluetun
+    healthcheck:
+      test: ping -c 1 www.google.com || exit 1
+      interval: 60s
+      retries: 3
+      start_period: 20s
+      timeout: 10s
+
+  flaresolverr:
+    image: ghcr.io/flaresolverr/flaresolverr:latest
+    container_name: flaresolverr
+    environment:
+      - LOG_LEVEL=info
+      - TZ=${TZ}
+    volumes:
+      - ./flaresolverr:/config
+    restart: unless-stopped
+    depends_on:
+      - gluetun
+    network_mode: service:gluetun
+
+  prowlarr:
+    image: lscr.io/linuxserver/prowlarr:latest
+    container_name: prowlarr
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=${TZ}
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - ./prowlarr:/config
+    restart: unless-stopped
+    depends_on:
+      - gluetun
+    network_mode: service:gluetun
+
+  sonarr:
+    image: lscr.io/linuxserver/sonarr:latest
+    container_name: sonarr
+    restart: unless-stopped
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=${TZ}
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - ./sonarr:/config
+      - /data:/data
+    ports:
+      - 8989:8989
+    networks:
+      servarrnetwork:
+        ipv4_address: 172.69.0.3
+
+  radarr:
+    image: lscr.io/linuxserver/radarr:latest
+    container_name: radarr
+    restart: unless-stopped
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=${TZ}
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - ./radarr:/config
+      - /data:/data
+    ports:
+      - 7878:7878
+    networks:
+      servarrnetwork:
+        ipv4_address: 172.69.0.4
+
+
+  bazarr:
+    image: lscr.io/linuxserver/bazarr:latest
+    container_name: bazarr
+    restart: unless-stopped
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=${TZ}
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - ./bazarr:/config
+      - /data:/data
+    ports:
+      - 6767:6767
+    networks:
+      servarrnetwork:
+        ipv4_address: 172.69.0.6
+
+  # Jellyfin media server
+  jellyfin:
+    image: lscr.io/linuxserver/jellyfin:latest
+    container_name: jellyfin
+    restart: unless-stopped
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=${TZ}
+    volumes:
+      - ./jellyfin:/config
+      - /data:/data
+      # Pass through the GPU for hardware acceleration
+      - /dev/nvidia0:/dev/nvidia0 # For NVIDIA GPU
+      - /dev/nvidiactl:/dev/nvidiactl # For NVIDIA GPU
+      - /dev/nvidia-modeset:/dev/nvidia-modeset # For NVIDIA GPU
+      - /dev/nvidia-uvm:/dev/nvidia-uvm # For NVIDIA GPU
+      - /dev/nvidia-uvm-tools:/dev/nvidia-uvm-tools # For NVIDIA GPU
+    ports:
+      - 8096:8096
+      - 8920:8920 # HTTPS
+      - 7359:7359/udp # Discovery service
+      - 1900:1900/udp # DLNA
+    devices:
+      - /dev/nvidia0:/dev/nvidia0
+      - /dev/nvidiactl:/dev/nvidiactl
+      - /dev/nvidia-uvm:/dev/nvidia-uvm
+      - /dev/nvidia-uvm-tools:/dev/nvidia-uvm-tools
+      - /dev/nvidia-caps/nvidia-cap1:/dev/nvidia-caps/nvidia-cap1
+      - /dev/nvidia-caps/nvidia-cap2:/dev/nvidia-caps/nvidia-cap2
+    networks:
+      servarrnetwork:
+        ipv4_address: 172.69.0.10
+
+  # Jellyseerr request management
+  jellyseerr:
+    image: fallenbagel/jellyseerr:latest
+    container_name: jellyseerr
+    restart: unless-stopped
+    environment:
+      - LOG_LEVEL=debug
+      - TZ=${TZ}
+      - PUID=1000
+      - PGID=1000
+    volumes:
+      - ./jellyseerr:/app/config
+    ports:
+      - 5055:5055
+    networks:
+      servarrnetwork:
+        ipv4_address: 172.69.0.11
+    depends_on:
+      - jellyfin
+
+  jellystat-db:
+    image: postgres:15.2
+    container_name: jellystat-db
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=${JELLYFIN_POSTGRES_USER}
+      - POSTGRES_PASSWORD=${JELLYFIN_POSTGRES_PASSWORD}
+    volumes:
+      - ./jellystat/postgres:/var/lib/postgresql/data
+    networks:
+      servarrnetwork:
+        ipv4_address: 172.69.0.12
+
+  # Jellystat analytics for Jellyfin
+  jellystat:
+    image: cyfershepard/jellystat:latest
+    container_name: jellystat
+    restart: unless-stopped
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - POSTGRES_USER=${JELLYFIN_POSTGRES_USER}
+      - POSTGRES_PASSWORD=${JELLYFIN_POSTGRES_PASSWORD}
+      - POSTGRES_IP=172.69.0.12  # Corrected
+      - POSTGRES_PORT=5432     # Corrected
+      - JWT_SECRET=${JELLYFIN_JWT_SECRET}
+      - TZ=${TZ}
+    volumes:
+      - ./jellystat:/app/data
+    ports:
+      - 3001:3001
+    networks:
+      servarrnetwork:
+        ipv4_address: 172.69.0.13
+    depends_on:
+      - jellyfin
+      - jellystat-db
+
+  proxy:
+    image: 'jc21/nginx-proxy-manager:latest'
+    container_name: nginx-proxy-manager
+    restart: unless-stopped
+    ports:
+      - '80:80'
+      - '81:81'
+      - '443:443'
+    network_mode: host
+    environment:
+      # Uncomment this if IPv6 is not enabled on your host
+      DISABLE_IPV6: 'true'
+    volumes:
+      - proxy-data:/data
+      - proxy-letsencrypt:/etc/letsencrypt
+    healthcheck:
+      test: ["CMD", "/usr/bin/check-health"]
+      interval: 10s
+      timeout: 3s
+
+  ddns:
+    image: favonia/cloudflare-ddns:latest
+    container_name: cloudflare-ddns
+    # network_mode: host # This bypasses network isolation and makes IPv6 easier (optional; see below)
+    restart: unless-stopped
+    user: "1000:1000" # Run the updater with specific user and group IDs (in that order).
+    read_only: true # Make the container filesystem read-only (optional but recommended)
+    cap_drop: [all] # Drop all Linux capabilities (optional but recommended)
+    security_opt: [no-new-privileges:true] # Another protection to restrict superuser privileges (optional but recommended)
+    environment:
+      - CLOUDFLARE_API_TOKEN=${CLOUDFLARE_API_TOKEN}
+      - DOMAINS=${CLOUDFLARE_DOMAINS}
+      - PROXIED=true
+      - IP6_PROVIDER=none
+
+
+  # For testing the proxy
+  helloworld:
+    image: 'karthequian/helloworld:latest'
+    container_name: helloworld
+    restart: unless-stopped
+    ports:
+      - 8888:80/tcp
+
+volumes:
+  proxy-data:
+  proxy-letsencrypt:
