@@ -1,0 +1,77 @@
+services:
+  # Jellyfin media server
+  jellyfin:
+    image: lscr.io/linuxserver/jellyfin:latest
+    container_name: jellyfin
+    restart: unless-stopped
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+    volumes:
+      - /docker/jellyfin:/config
+      - /docker/jellyfin/transcode:/transcode
+      - /docker/jellyfin/cache:/cache
+      - /data:/data
+    ports:
+      - 8096:8096
+      - 8920:8920 # HTTPS
+      - 7359:7359/udp # Discovery service
+      - 1900:1900/udp # DLNA
+
+    runtime: nvidia
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+  # Jellyseerr request management
+  jellyseerr:
+    image: fallenbagel/jellyseerr:latest
+    container_name: jellyseerr
+    restart: unless-stopped
+    environment:
+      - LOG_LEVEL=debug
+      - TZ=${TZ}
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - JELLYFIN_HOST=http://172.18.0.5
+      - JELLYFIN_PORT=8096
+    volumes:
+      - /docker/jellyseerr:/app/config
+    ports:
+      - 5055:5055
+
+  jellystat-db:
+    image: postgres:15.2
+    container_name: jellystat-db
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=${JELLYFIN_POSTGRES_USER}
+      - POSTGRES_PASSWORD=${JELLYFIN_POSTGRES_PASSWORD}
+    volumes:
+      - /docker/jellystat/db:/var/lib/postgresql/data
+
+  # Jellystat analytics for Jellyfin
+  jellystat:
+    image: cyfershepard/jellystat:latest
+    container_name: jellystat
+    restart: unless-stopped
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - POSTGRES_USER=${JELLYFIN_POSTGRES_USER}
+      - POSTGRES_PASSWORD=${JELLYFIN_POSTGRES_PASSWORD}
+      - POSTGRES_IP=jellystat-db
+      - POSTGRES_PORT=5432
+      - JWT_SECRET=${JELLYFIN_JWT_SECRET}
+      - TZ=${TZ}
+    volumes:
+      - /docker/jellystat:/app/data
+    ports:
+      - 3000:3000
+    depends_on:
+      - jellystat-db
