@@ -1,0 +1,22 @@
+services:
+  vaultwarden:
+    image: vaultwarden/server:latest
+    container_name: vaultwarden
+    restart: unless-stopped
+    ports:
+      - "8088:80"
+    volumes:
+      - /docker/vaultwarden:/data  # Adjust path as needed
+    environment:
+      WEBSOCKET_ENABLED: 'true'  # Enable WebSocket for live sync
+      SIGNUPS_ALLOWED: 'false'   # Set to 'true' if you want to allow self-signup
+      ADMIN_TOKEN: ${VAULTWARDEN_ADMIN_TOKEN}  # Generate a strong token
+
+      # Email configuration
+      SMTP_HOST: in-v3.mailjet.com
+      SMTP_PORT: 587
+      SMTP_SECURITY: starttls
+      SMTP_FROM: ${SMTP_FROM}
+      SMTP_FROM_NAME: Vaultwarden
+      SMTP_USERNAME: ${SMTP_USERNAME}
+      SMTP_PASSWORD: ${SMTP_PASSWORD}
