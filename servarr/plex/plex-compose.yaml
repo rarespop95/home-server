@@ -1,0 +1,64 @@
+services:
+  plex:
+    image: lscr.io/linuxserver/plex:latest
+    container_name: plex
+    network_mode: host
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+      - VERSION=
+      - PLEX_CLAIM=${PLEX_CLAIM}
+    ports:
+      - 32400:32400
+    runtime: nvidia
+    devices:
+      - /dev/dri:/dev/dri
+    volumes:
+      - /docker/plex:/config
+      - /data:/data
+    restart: unless-stopped
+
+  overseerr:
+    image: lscr.io/linuxserver/overseerr:latest
+    container_name: overseerr
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+    volumes:
+      - /docker/overseerr:/config
+    ports:
+      - 5056:5055
+    depends_on:
+      - plex
+    restart: unless-stopped
+
+  tautulli:
+    image: lscr.io/linuxserver/tautulli:latest
+    container_name: tautulli
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+    volumes:
+      - /docker/tautulli:/config
+    ports:
+      - 8181:8181
+    depends_on:
+      - plex
+    restart: unless-stopped
+
+
+
+  plex-meta-manager:
+    image: meisnate12/plex-meta-manager:latest
+    container_name: plex-meta-manager
+    environment:
+      - TZ=${TZ}
+    volumes:
+      - /docker/plex-meta-manager/config:/config
+      - /docker/plex-meta-manager/logs:/logs
+    depends_on:
+      - plex
+    restart: unless-stopped

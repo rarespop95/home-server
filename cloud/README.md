@@ -1,4 +1,4 @@
-# home-server
+# Cloud
 
 You need to add the following environment variables to your `.env` file:
 
@@ -17,7 +17,47 @@ IMMICH_DB_DATABASE_NAME=
 TZ=
 ```
 
-## Secure the ADMIN_TOKEN for Vaultwarden
+# Immich Machine Learning Server Setup
+
+To allow Immich to use Machine Learning features, you need to set up a separate ML server. This can be done by deploying the Immich ML Docker container on a different machine or the same host, depending on your setup. The VM running the Immich ML server should have access to a GPU for optimal performance. That's why it is recommended to run the ML server on a different machine with a compatible NVIDIA GPU.
+
+See the [Immich ML Server Documentation](https://immich.app/docs/features/ml-hardware-acceleration) for more details.
+
+My Cloud VM does not have access to a GPU, so I set up the Immich ML server on a different machine with a compatible NVIDIA GPU (see this [config](../servarr/other/other-composer.yaml)).
+
+After deploying the Immich ML Docker container, make sure to note the IP address of the ML server. Then go to the Immich web interface, navigate to Settings > Machine Learning, and enter the IP address of the ML server to connect it with your Immich instance.
+
+## Verifying GPU Integration
+
+After setup, verify that the ML container can access your GPU:
+
+### 1. Check PyTorch CUDA availability
+```bash
+docker exec -it immich_machine_learning python3 -c "import torch; print(torch.cuda.is_available())"
+```
+**Expected output:** `True`
+
+### 2. Verify GPU visibility from container
+```bash
+docker exec -it immich_machine_learning nvidia-smi
+```
+**Expected output:**
+- Your GPU (e.g., RTX 3050 LP) is listed
+- No NVML errors appear
+
+### 3. Monitor GPU usage during processing
+```bash
+watch -n 1 nvidia-smi
+```
+Upload a photo to Immich and observe the GPU metrics. You should see:
+- GPU memory increase by 300–800 MB during OCR/face detection/embedding processes
+- GPU utilization spike when ML tasks are running
+
+If all three checks pass, your Immich ML server is successfully using GPU acceleration.
+
+See more details in the [Immich ML Hardware Acceleration Documentation](https://immich.app/docs/features/ml-hardware-acceleration).
+
+# Secure the ADMIN_TOKEN for Vaultwarden
 
 Previously the ADMIN_TOKEN could only be in a plain text format.
 You can now hash the ADMIN_TOKEN using Argon2 by generating a PHC string.

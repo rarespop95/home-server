@@ -8,6 +8,7 @@ services:
   gluetun:
     image: qmcgaw/gluetun
     container_name: gluetun
+    init: true
     cap_add:
       - NET_ADMIN
     networks:
@@ -19,6 +20,8 @@ services:
       - 6881:6881 # qbittorrent torrent port
       - 9696:9696 # prowlarr
       - 8191:8191 # flaresolverr
+      - 8001:8000 # gluetun HTTP control server (host port 8001 -> container port 8000)
+      - 8765:80 # speedtest-tracker
     volumes:
       - ./gluetun:/gluetun
     environment:
@@ -32,6 +35,8 @@ services:
       - SERVER_CITIES=${SERVER_CITIES}
       - HEALTH_VPN_DURATION_INITIAL=120s
       - BLOCK_MALICIOUS=off
+      - HTTPPROXY=on
+      - HTTPCONTROL_SERVER=on
     healthcheck:
       test: ping -c 1 www.google.com || exit 1
       interval: 20s
@@ -69,7 +74,7 @@ services:
   # Healthcheck was added to work with deunhealth to restart container
   # on unhealthy status. labels allows deunhealth to monitor.
   deunhealth:
-    image: qmcgaw/deunhealth
+    image: qmcgaw/deunhealth:latest
     container_name: deunhealth
     network_mode: "none"
     environment:
@@ -97,15 +102,18 @@ services:
         restart: true
     network_mode: service:gluetun
 
-  flaresolverr:
-    image: ghcr.io/flaresolverr/flaresolverr:latest
-    container_name: flaresolverr
+  byparr:
+    image: ghcr.io/thephaseless/byparr:latest
+    container_name: byparr
+    restart: unless-stopped
+    shm_size: 2gb
     environment:
       - LOG_LEVEL=info
       - TZ=${TZ}
     volumes:
-      - /docker/flaresolverr:/config
-    restart: unless-stopped
+      - /docker/byparr:/config
+      # Optional: save screenshots on error
+      # - /docker/byparr/screenshots:/app/screenshots
     depends_on:
       gluetun:
         condition: service_healthy
@@ -181,20 +189,16 @@ services:
       - PGID=${PGID}
       - TZ=${TZ}
 
-  readarr:
-    image: lscr.io/linuxserver/readarr:develop
-    container_name: readarr
-    restart: unless-stopped
+  lidarr:
+    image: lscr.io/linuxserver/lidarr:latest
+    container_name: lidarr
     environment:
       - PUID=${PUID}
       - PGID=${PGID}
       - TZ=${TZ}
     volumes:
-      - /etc/localtime:/etc/localtime:ro
-      - /docker/readarr:/config
+      - /docker/lidarr:/config
       - /data:/data
     ports:
-      - 8787:8787
-    networks:
-      servarrnetwork:
-        ipv4_address: 172.69.0.7
+      - 8686:8686
+    restart: unless-stopped

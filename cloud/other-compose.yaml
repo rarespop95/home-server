@@ -16,7 +16,7 @@ services:
       SMTP_HOST: in-v3.mailjet.com
       SMTP_PORT: 587
       SMTP_SECURITY: starttls
-      SMTP_FROM: ${SMTP_FROM}
+      SMTP_FROM: ${SMTP_FROM}  # must match Mailgun domain
       SMTP_FROM_NAME: Vaultwarden
       SMTP_USERNAME: ${SMTP_USERNAME}
       SMTP_PASSWORD: ${SMTP_PASSWORD}

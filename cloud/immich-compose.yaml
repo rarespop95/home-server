@@ -14,24 +14,12 @@ services:
       - DB_PASSWORD=${IMMICH_DB_PASSWORD}
       - DB_DATABASE_NAME=${IMMICH_DB_DATABASE_NAME}
       - DB_PORT=5432 # Default PostgreSQL port
+      - ML_ENDPOINT=http://{IMMICH_ML_IP}:3003
     ports:
       - '2283:2283'
     depends_on:
       - redis
       - database
-    restart: always
-    healthcheck:
-      disable: false
-
-  immich-machine-learning:
-    container_name: immich_machine_learning
-    image: ghcr.io/immich-app/immich-machine-learning:${IMMICH_VERSION:-release}
-    volumes:
-      - /docker/immich/cache:/cache
-    environment:
-      - PUID=${PUID}
-      - PGID=${PGID}
-      - TZ=${TZ}
     restart: always
     healthcheck:
       disable: false

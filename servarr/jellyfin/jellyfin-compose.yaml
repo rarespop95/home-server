@@ -8,6 +8,8 @@ services:
       - PUID=${PUID}
       - PGID=${PGID}
       - TZ=${TZ}
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=all
     volumes:
       - /docker/jellyfin:/config
       - /docker/jellyfin/transcode:/transcode
@@ -15,35 +17,29 @@ services:
       - /data:/data
     ports:
       - 8096:8096
-      - 8920:8920 # HTTPS
-      - 7359:7359/udp # Discovery service
-      - 1900:1900/udp # DLNA
-
+      - 8920:8920
+      - 7359:7359/udp
+      - 1900:1900/udp
     runtime: nvidia
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
+    devices:
+      - /dev/dri:/dev/dri
 
   # Jellyseerr request management
-  jellyseerr:
-    image: fallenbagel/jellyseerr:latest
-    container_name: jellyseerr
-    restart: unless-stopped
-    environment:
-      - LOG_LEVEL=debug
-      - TZ=${TZ}
-      - PUID=${PUID}
-      - PGID=${PGID}
-      - JELLYFIN_HOST=http://172.18.0.5
-      - JELLYFIN_PORT=8096
-    volumes:
-      - /docker/jellyseerr:/app/config
-    ports:
-      - 5055:5055
+  # jellyseerr:
+  #   image: fallenbagel/jellyseerr:latest
+  #   container_name: jellyseerr
+  #   restart: unless-stopped
+  #   environment:
+  #     - LOG_LEVEL=debug
+  #     - TZ=${TZ}
+  #     - PUID=${PUID}
+  #     - PGID=${PGID}
+  #     - JELLYFIN_HOST=http://172.18.0.5
+  #     - JELLYFIN_PORT=8096
+  #   volumes:
+  #     - /docker/jellyseerr:/app/config
+  #   ports:
+  #     - 5055:5055
 
   jellystat-db:
     image: postgres:15.2

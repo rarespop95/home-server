@@ -1,0 +1,63 @@
+services:
+  glance:
+    container_name: glance
+    image: glanceapp/glance
+    restart: unless-stopped
+    volumes:
+      - /docker/glance:/app/config
+    environment:
+      - GLANCE_PASSWORD=${GLANCE_PASSWORD}
+      - PROXMOXVE_URL=${PROXMOXVE_URL}
+      - PROXMOXVE_KEY=${PROXMOXVE_KEY}
+      - ADGUARD_URL=${ADGUARD_URL}
+      - ADGUARD_USERNAME=${ADGUARD_USERNAME}
+      - ADGUARD_PASSWORD=${ADGUARD_PASSWORD}
+      - GLUETUN_URL=${GLUETUN_URL}
+      - GLUETUN_API_KEY=${GLUETUN_API_KEY}
+      - SPEEDTEST_URL=${SPEEDTEST_URL}
+      - SPEEDTEST_TRACKER_API_TOKEN=${SPEEDTEST_TRACKER_API_TOKEN}
+      - SPEEDTEST_URL_VPN=${SPEEDTEST_URL_VPN}
+      - SPEEDTEST_TRACKER_API_TOKEN_VPN=${SPEEDTEST_TRACKER_API_TOKEN_VPN}
+      - IMMICH_URL=${IMMICH_URL}
+      - IMMICH_API_KEY=${IMMICH_API_KEY}
+    ports:
+      - 8101:8080
+
+  filebrowser:
+    image: filebrowser/filebrowser:latest
+    container_name: filebrowser
+    volumes:
+      - /data:/srv/data
+      - /docker:/srv/docker
+      - /docker/filebrowser/filebrowser.db:/database.db #Change to match your directory
+      - /docker/filebrowser/settings.json:/config/settings.json #Change to match your directory
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+    ports:
+      - 8095:80 #Change the port if needed
+    restart: unless-stopped
+
+  immich-machine-learning:
+    container_name: immich_machine_learning
+    image: ghcr.io/immich-app/immich-machine-learning:${IMMICH_VERSION:-release}-cuda
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities:
+                - gpu
+    restart: always
+    ports:
+      - "3003:3003"
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=all
+      - GUNICORN_CMD_ARGS=--bind 0.0.0.0:3003
+    volumes:
+      - /docker/immich/cache:/cache
