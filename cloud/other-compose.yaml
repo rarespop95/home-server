@@ -8,7 +8,8 @@ services:
     volumes:
       - /docker/vaultwarden:/data  # Adjust path as needed
     environment:
-      WEBSOCKET_ENABLED: 'true'  # Enable WebSocket for live sync
+      # WEBSOCKET_ENABLED is deprecated (ignored since v1.29, removed path in v1.31).
+      # WebSockets now run on the main HTTP port by default — no setting needed.
       SIGNUPS_ALLOWED: 'false'   # Set to 'true' if you want to allow self-signup
       ADMIN_TOKEN: ${VAULTWARDEN_ADMIN_TOKEN}  # Generate a strong token
 

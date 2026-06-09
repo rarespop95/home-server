@@ -51,9 +51,12 @@ services:
 
 
 
-  plex-meta-manager:
-    image: meisnate12/plex-meta-manager:latest
-    container_name: plex-meta-manager
+  # Plex Meta Manager was rebranded to "Kometa". The meisnate12 image is
+  # deprecated (no more latest/nightly tags). Config dir kept as-is so existing
+  # config carries over; rename to /docker/kometa if you prefer.
+  kometa:
+    image: kometateam/kometa:latest
+    container_name: kometa
     environment:
       - TZ=${TZ}
     volumes:
