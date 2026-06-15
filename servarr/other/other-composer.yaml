@@ -20,20 +20,42 @@ services:
       - SPEEDTEST_TRACKER_API_TOKEN_VPN=${SPEEDTEST_TRACKER_API_TOKEN_VPN}
       - IMMICH_URL=${IMMICH_URL}
       - IMMICH_API_KEY=${IMMICH_API_KEY}
+      - SONARR_API_URL=${SONARR_API_URL}
+      - SONARR_KEY=${SONARR_KEY}
+      - RADARR_API_URL=${RADARR_API_URL}
+      - RADARR_KEY=${RADARR_KEY}
     ports:
       - 8101:8080
 
-  filebrowser:
-    image: filebrowser/filebrowser:latest
-    container_name: filebrowser
-    volumes:
-      - /data:/srv/data
-      - /docker:/srv/docker
-      - /docker/filebrowser/filebrowser.db:/database.db #Change to match your directory
-      - /docker/filebrowser/settings.json:/config/settings.json #Change to match your directory
+  # Regular internet speed tests (direct, non-VPN).
+  speedtest-tracker:
+    image: lscr.io/linuxserver/speedtest-tracker:latest
+    container_name: speedtest-tracker
+    restart: unless-stopped
     environment:
       - PUID=${PUID}
       - PGID=${PGID}
+      - TZ=${TZ}
+      - APP_KEY=${SPEEDTEST_APP_KEY}
+      - APP_URL=${SPEEDTEST_URL}
+      - DB_CONNECTION=sqlite
+    volumes:
+      - /docker/speedtest-tracker:/config
+    ports:
+      - 8766:80
+
+  # FileBrowser Quantum (gtstef/filebrowser fork). Config is YAML, not settings.json.
+  # config.yaml + database.db live in /home/filebrowser/data (mapped to host dir below).
+  filebrowser:
+    image: gtstef/filebrowser:stable
+    container_name: filebrowser
+    user: ${PUID}:${PGID}
+    environment:
+      - FILEBROWSER_CONFIG=data/config.yaml
+    volumes:
+      - /data:/srv/data
+      - /docker:/srv/docker
+      - /docker/filebrowser/data:/home/filebrowser/data
     ports:
       - 8095:80 #Change the port if needed
     restart: unless-stopped
@@ -61,3 +83,8 @@ services:
       - GUNICORN_CMD_ARGS=--bind 0.0.0.0:3003
     volumes:
       - /docker/immich/cache:/cache
+
+networks:
+  servarr:
+    external: true
+    name: arr_services_servarrnetwork

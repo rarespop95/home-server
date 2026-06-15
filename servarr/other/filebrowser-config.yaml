@@ -1,0 +1,22 @@
+# FileBrowser Quantum (gtstef/filebrowser) config.
+# Deploy to host: /docker/filebrowser/data/config.yaml
+# (mapped to /home/filebrowser/data/config.yaml in other-composer.yaml).
+# database.db is created next to this file on first run.
+server:
+  port: 80
+  baseURL: "/"
+  sources:
+    - path: "/srv/data"
+      name: "data"
+    - path: "/srv/docker"
+      name: "docker"
+auth:
+  # Initial admin seeded on first run. Change the password in the UI after
+  # first login, then delete these two lines.
+  adminUsername: admin
+  adminPassword: admin
+  methods:
+    password:
+      enabled: true
+      minLength: 5
+      signup: false

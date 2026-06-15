@@ -1,0 +1,38 @@
+services:
+  # Beszel Hub - lightweight monitoring dashboard + data store
+  beszel:
+    image: henrygd/beszel:latest
+    container_name: beszel
+    restart: unless-stopped
+    ports:
+      - "8090:8090"
+    volumes:
+      - beszel_data:/beszel_data
+      # socket only needed if the hub host should also report itself via the
+      # built-in agent; we run a dedicated agent below instead.
+    networks:
+      - beszel
+
+  # Beszel Agent - collects host + container metrics, reports to the hub.
+  # host network so it sees real host CPU/mem/net/disk (not the container's).
+  beszel-agent:
+    image: henrygd/beszel-agent:latest
+    container_name: beszel-agent
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    environment:
+      LISTEN: 45876
+      # WebSocket mode (recommended): agent dials the hub, no inbound port needed.
+      HUB_URL: http://localhost:8090
+      TOKEN: ${BESZEL_TOKEN}
+      # Public key shown by the hub when you click "Add System".
+      KEY: ${BESZEL_KEY}
+
+networks:
+  beszel:
+    driver: bridge
+
+volumes:
+  beszel_data:

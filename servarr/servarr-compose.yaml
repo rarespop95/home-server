@@ -21,7 +21,7 @@ services:
       - 9696:9696 # prowlarr
       - 8191:8191 # flaresolverr
       - 8001:8000 # gluetun HTTP control server (host port 8001 -> container port 8000)
-      - 8765:80 # speedtest-tracker
+      - 8765:80 # speedtest-tracker-vpn
     volumes:
       - ./gluetun:/gluetun
     environment:
@@ -114,6 +114,27 @@ services:
       - /docker/byparr:/config
       # Optional: save screenshots on error
       # - /docker/byparr/screenshots:/app/screenshots
+    depends_on:
+      gluetun:
+        condition: service_healthy
+        restart: true
+    network_mode: service:gluetun
+
+  # Internet speed tests through the VPN connection (routed via gluetun).
+  # Web UI reachable on host port 8765 (mapped in gluetun's ports above).
+  speedtest-tracker-vpn:
+    image: lscr.io/linuxserver/speedtest-tracker:latest
+    container_name: speedtest-tracker-vpn
+    restart: unless-stopped
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+      - APP_KEY=${SPEEDTEST_APP_KEY_VPN}
+      - APP_URL=${SPEEDTEST_URL_VPN}
+      - DB_CONNECTION=sqlite
+    volumes:
+      - /docker/speedtest-tracker-vpn:/config
     depends_on:
       gluetun:
         condition: service_healthy
